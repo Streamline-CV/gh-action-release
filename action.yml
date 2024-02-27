@@ -1,0 +1,40 @@
+name: 'Streamline CV: release'
+description: 'Automates boring part of job application: build a fancy CV pdf.'
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    - name: Run image
+      uses: abatilo/actions-poetry@v2
+    - name: Create and activate virtual environment
+      shell: bash
+      run: |
+        pip install git+https://github.com/achugr/rendercvcl.git
+    - name: Render CV and cover letter
+      shell: bash
+      run: |
+        rendercv render config.yaml
+      continue-on-error: false
+    - name: Prepare Release Tag and Name
+      id: prep
+      shell: bash
+      run: |
+        DATE=$(date +'%Y-%m-%d')
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+        RELEASE_TAG=${DATE}-${SHORT_SHA}
+        COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1 | cut -c1-40)
+        RELEASE_NAME="CV(${RELEASE_TAG}): ${COMMIT_MSG}"
+        echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
+        echo "RELEASE_NAME=${RELEASE_NAME}" >> $GITHUB_ENV
+    - name: Create Release and Upload Artifact
+      uses: softprops/action-gh-release@v1
+      with:
+        files: output/*.pdf
+        tag_name: ${{ env.RELEASE_TAG }}
+        name: ${{ env.RELEASE_NAME }}
+        draft: false
+        prerelease: false
